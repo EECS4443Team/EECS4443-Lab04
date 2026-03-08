@@ -16,7 +16,7 @@ This repository is for EECS 4443 W2026 Lab 04
 | **Asif Javed** | Runtime permission requests handling, feedback (Toasts), error handling for null/canceled results | 
 
 ## Architecture
-This app follows the MVVM (Model-View-ViewModel) architectural pattern, leveraging Android Architecture Components.
+This app follows the MVC (Model-View-Controller) architectural pattern, separating UI components from media intent and permission logic.
 
 *   **Model**: The data layer is represented by the FileProvider and the createImageFile() logic. It manages the creation of temporary files and secure URIs for media storage, ensuring that the image data is accessible to external camera apps while maintaining scoped storage security.
 *   **Controller**: MainActivity.java acts as the controller. It manages the Activity Result API launchers to handle external intents, processes runtime permission requests only when a button is clicked, and coordinates the flow between user actions and data updates.
