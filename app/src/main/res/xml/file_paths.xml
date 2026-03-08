@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <external-path name="my_images" path="Android/data/com.example.lab4/files/Pictures" />
+    <external-path name="my_images" path="Android/data/com.example.eecs4443_lab04/files/Pictures" />
+
+    <external-files-path name="external_files" path="." />
 </paths>
