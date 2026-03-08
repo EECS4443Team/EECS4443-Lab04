@@ -35,7 +35,7 @@
             android:layout_marginTop="40dp"
             android:background="@android:color/darker_gray"
             android:contentDescription="@string/profile_image_display"
-            android:scaleType="centerCrop"
+            android:scaleType="fitCenter"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tv_title" />
@@ -50,80 +50,15 @@
             app:layout_constraintStart_toStartOf="@id/iv_profile"
             app:layout_constraintTop_toTopOf="@id/iv_profile" />
 
-        <TextView
-            android:id="@+id/tv_customization"
+        <Button
+            android:id="@+id/btn_customize_color"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="32dp"
-            android:text="Customize Background"
-            android:textStyle="bold"
-            android:textColor="@color/black"
+            android:text="@string/customize_color"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/iv_profile" />
-
-        <LinearLayout
-            android:id="@+id/ll_color_options"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:orientation="horizontal"
-            android:gravity="center"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tv_customization">
-
-            <View
-                android:id="@+id/btn_color_gray"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_marginHorizontal="6dp"
-                android:background="@drawable/color_button_bg"
-                android:backgroundTint="@color/bg_light_gray"
-                android:clickable="true"
-                android:focusable="true" />
-
-            <View
-                android:id="@+id/btn_color_blue"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_marginHorizontal="6dp"
-                android:background="@drawable/color_button_bg"
-                android:backgroundTint="@color/bg_light_blue"
-                android:clickable="true"
-                android:focusable="true" />
-
-            <View
-                android:id="@+id/btn_color_green"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_marginHorizontal="6dp"
-                android:background="@drawable/color_button_bg"
-                android:backgroundTint="@color/bg_light_green"
-                android:clickable="true"
-                android:focusable="true" />
-
-            <View
-                android:id="@+id/btn_color_yellow"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_marginHorizontal="6dp"
-                android:background="@drawable/color_button_bg"
-                android:backgroundTint="@color/bg_light_yellow"
-                android:clickable="true"
-                android:focusable="true" />
-
-            <View
-                android:id="@+id/btn_color_pink"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_marginHorizontal="6dp"
-                android:background="@drawable/color_button_bg"
-                android:backgroundTint="@color/bg_light_pink"
-                android:clickable="true"
-                android:focusable="true" />
-
-        </LinearLayout>
 
         <Button
             android:id="@+id/btn_gallery"
@@ -133,7 +68,7 @@
             android:text="@string/select_from_gallery"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/ll_color_options" />
+            app:layout_constraintTop_toBottomOf="@id/btn_customize_color" />
 
         <Button
             android:id="@+id/btn_camera"

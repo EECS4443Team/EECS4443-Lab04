@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
@@ -20,6 +21,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
@@ -31,9 +33,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -50,7 +50,9 @@ public class MainActivity extends AppCompatActivity {
     private ImageView ivProfile;
     private Button btnCamera;
     private Button btnGallery;
+    private Button btnCustomizeColor;
     private TextView tvStatus;
+    private TextView tvTitle;
     private ProgressBar pbLoading;
     private ScrollView scrollView;
 
@@ -65,7 +67,9 @@ public class MainActivity extends AppCompatActivity {
         ivProfile = findViewById(R.id.iv_profile);
         btnCamera = findViewById(R.id.btn_camera);
         btnGallery = findViewById(R.id.btn_gallery);
+        btnCustomizeColor = findViewById(R.id.btn_customize_color);
         tvStatus = findViewById(R.id.tv_status);
+        tvTitle = findViewById(R.id.tv_title);
         pbLoading = findViewById(R.id.pb_loading);
 
         // Standard system bar padding handling
@@ -77,10 +81,10 @@ public class MainActivity extends AppCompatActivity {
 
         // Load saved preferences and profile image
         loadPreferences();
-        setupColorCustomization();
 
         btnCamera.setOnClickListener(v -> onCameraButtonClick());
         btnGallery.setOnClickListener(v -> onGalleryButtonClick());
+        btnCustomizeColor.setOnClickListener(v -> showColorPickerDialog());
 
         // Handle image selection from gallery
         getContentLauncher = registerForActivityResult(
@@ -127,31 +131,62 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
-    private void setupColorCustomization() {
-        findViewById(R.id.btn_color_gray).setOnClickListener(v -> changeBackgroundColor(R.color.bg_light_gray));
-        findViewById(R.id.btn_color_blue).setOnClickListener(v -> changeBackgroundColor(R.color.bg_light_blue));
-        findViewById(R.id.btn_color_green).setOnClickListener(v -> changeBackgroundColor(R.color.bg_light_green));
-        findViewById(R.id.btn_color_yellow).setOnClickListener(v -> changeBackgroundColor(R.color.bg_light_yellow));
-        findViewById(R.id.btn_color_pink).setOnClickListener(v -> changeBackgroundColor(R.color.bg_light_pink));
+    /**
+     * Shows a dialog with preset colors for background selection.
+     */
+    private void showColorPickerDialog() {
+        final String[] colorNames = {"Light Gray", "Light Blue", "Light Green", "Light Yellow", "Light Pink", "Dark Gray", "Black"};
+        final int[] colorResIds = {
+                R.color.bg_light_gray,
+                R.color.bg_light_blue,
+                R.color.bg_light_green,
+                R.color.bg_light_yellow,
+                R.color.bg_light_pink,
+                android.R.color.darker_gray,
+                android.R.color.black
+        };
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Pick a background color");
+        builder.setItems(colorNames, (dialog, which) -> {
+            int selectedColor = ContextCompat.getColor(this, colorResIds[which]);
+            applySelectedColor(selectedColor);
+            
+            // Save preference as raw color int for more flexibility
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit().putInt(KEY_BG_COLOR, selectedColor).apply();
+        });
+        builder.show();
     }
 
-    private void changeBackgroundColor(int colorResId) {
-        scrollView.setBackgroundColor(ContextCompat.getColor(this, colorResId));
-        // Save the background color preference
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putInt(KEY_BG_COLOR, colorResId).apply();
+    /**
+     * Applies the background color and updates text colors for readability based on contrast.
+     */
+    private void applySelectedColor(int color) {
+        scrollView.setBackgroundColor(color);
+
+        // Calculate brightness to determine contrasting text color
+        // Formula for relative luminance: 0.299*R + 0.587*G + 0.114*B
+        double darkness = 1 - (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255;
+        
+        int textColor = (darkness < 0.5) ? Color.BLACK : Color.WHITE;
+
+        // Apply contrasting color to all labels
+        tvTitle.setTextColor(textColor);
+        tvStatus.setTextColor(textColor);
     }
 
     /**
      * Copies the image from the given URI to the app's internal storage.
-     * This avoids SecurityExceptions when reloading the app as gallery URIs are temporary.
      */
     private void saveImageToInternalStorage(Uri uri) {
         try (InputStream is = getContentResolver().openInputStream(uri);
              FileOutputStream fos = openFileOutput(PROFILE_IMAGE_NAME, Context.MODE_PRIVATE)) {
             byte[] buffer = new byte[1024];
             int read;
-            while ((read = is.read(buffer)) != -1) {
+            while (true) {
+                assert is != null;
+                if (!((read = is.read(buffer)) != -1)) break;
                 fos.write(buffer, 0, read);
             }
         } catch (IOException e) {
@@ -160,7 +195,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Reads the profile image from internal storage and displays it in the ImageView.
+     * Reads the profile image from internal storage and displays it.
      */
     private void displayProfileImage() {
         File file = new File(getFilesDir(), PROFILE_IMAGE_NAME);
@@ -173,11 +208,12 @@ public class MainActivity extends AppCompatActivity {
     private void loadPreferences() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         
-        // Restore background color
-        int savedColor = prefs.getInt(KEY_BG_COLOR, R.color.bg_light_gray);
-        scrollView.setBackgroundColor(ContextCompat.getColor(this, savedColor));
+        // Restore background and text color (default to Light Gray)
+        int defaultColor = ContextCompat.getColor(this, R.color.bg_light_gray);
+        int savedColor = prefs.getInt(KEY_BG_COLOR, defaultColor);
+        applySelectedColor(savedColor);
 
-        // Restore profile image from internal storage
+        // Restore profile image
         displayProfileImage();
     }
 
@@ -198,7 +234,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void startCameraProcess() {
         try {
-            // Create a temporary file for the camera intent
             File photoFile = File.createTempFile(
                     "TEMP_IMG_", ".jpg", getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES));
             tempPhotoUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", photoFile);
@@ -213,7 +248,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
-        // Save temp URI to handle configuration changes during camera capture
         if (tempPhotoUri != null) {
             outState.putParcelable("temp_photo_uri", tempPhotoUri);
         }
@@ -222,7 +256,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
-        // Restore temp URI after configuration change
         tempPhotoUri = savedInstanceState.getParcelable("temp_photo_uri");
     }
 }
