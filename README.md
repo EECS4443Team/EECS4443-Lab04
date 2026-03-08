@@ -10,17 +10,17 @@ This repository is for EECS 4443 W2026 Lab 04
 ## Team Contributions
 | Team Member        | Contributions | 
 |--------------------|------------------|
-| **Jorel Louie Chim** | Data Model, Contact Row UI, Add Contact UI, Edit Contact UI  |
-| **Shivraj Banwait** | Edit Contact UI, Data Model, Data Storage (SQLite) |
-| **Chan Woo Hwang** | Main Activity UI, Gesture Handling, Data Storage (SharedPreferences), MVVM Refactoring, Backend | 
-| **Asif Javed** | Error Handling, Comments, Validation | 
+| **Jorel Louie Chim** | Implement MainActivity logic, Activity Result API registries, the onSaveInstanceState lifecycle handling  |
+| **Shivraj Banwait** | ConstraintLayout XML Design (ImageView, Buttons, and theme customization), createImageFile logic |
+| **Chan Woo Hwang** | FileProvider setup implementation, createImageFile logic, AndroidManifest provider configurations| 
+| **Asif Javed** | Runtime permission requests handling, feedback (Toasts), error handling for null/canceled results | 
 
 ## Architecture
-This app follows the MVVM (Model-View-ViewModel) architectural pattern, leveraging Android Architecture Components.
+This app follows the MVC (Model-View-Controller) architectural pattern, separating UI components from media intent and permission logic.
 
-*   **Model**: The `Contact` class defines the data structure of the application.
-*   **View**: `Fragment`s (e.g., `ContactFragment`, `ContactDetailsFragment`) compose the UI and handle user input. They observe `LiveData` from the ViewModel to automatically update the UI upon data changes.
-*   **ViewModel**: `ContactViewModel` manages UI-related data and business logic. It's lifecycle-aware, preserving data across configuration changes like screen rotations.
-*   **Repository**: `ContactRepository` abstracts the data source, allowing the ViewModel to request data operations without direct knowledge of the underlying database (`ContactDBHelper`).
+*   **Model**: The data layer is represented by the FileProvider and the createImageFile() logic. It manages the creation of temporary files and secure URIs for media storage, ensuring that the image data is accessible to external camera apps while maintaining scoped storage security.
+*   **Controller**: MainActivity.java acts as the controller. It manages the Activity Result API launchers to handle external intents, processes runtime permission requests only when a button is clicked, and coordinates the flow between user actions and data updates.
+*   **View**: The user interface is defined in activity_main.xml using a ConstraintLayout. It contains the ImageView for profile display, "Take Photo" and "Select from Gallery" buttons, and a TextView for status feedback.
+
 
 This structure enhances testability and maintainability by clearly separating concerns.
