@@ -12,10 +12,12 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.core.graphics.Insets;
+import androidx.core.os.BundleCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
@@ -121,13 +123,11 @@ public class MainActivity extends AppCompatActivity {
     private void startCameraProcess() {
         try {
             File photoFile = createImageFile();
-            if (photoFile != null) {
-                // Generate secure URI using FileProvider
-                photoUri = FileProvider.getUriForFile(this,
-                        getPackageName() + ".fileprovider",
-                        photoFile);
-                takePictureLauncher.launch(photoUri);
-            }
+            // Generate secure URI using FileProvider
+            photoUri = FileProvider.getUriForFile(this,
+                    getPackageName() + ".fileprovider",
+                    photoFile);
+            takePictureLauncher.launch(photoUri);
         } catch (Exception e) {
             e.printStackTrace();
             tvStatus.setText("Error: Camera failed to start");
@@ -145,7 +145,7 @@ public class MainActivity extends AppCompatActivity {
 
     // Save image state for orientation changes
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         if (photoUri != null) {
             outState.putParcelable("photo_uri", photoUri);
@@ -154,9 +154,9 @@ public class MainActivity extends AppCompatActivity {
 
     // Restore image state after recreation
     @Override
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+    protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
-        photoUri = savedInstanceState.getParcelable("photo_uri");
+        photoUri = BundleCompat.getParcelable(savedInstanceState, "photo_uri", Uri.class);
         if (photoUri != null) {
             ivProfile.setImageURI(photoUri);
         }
