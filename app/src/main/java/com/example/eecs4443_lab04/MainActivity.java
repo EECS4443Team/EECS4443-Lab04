@@ -1,11 +1,18 @@
 package com.example.eecs4443_lab04;
 
 import android.Manifest;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -16,36 +23,50 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
-import androidx.core.graphics.Insets;
-import androidx.core.os.BundleCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.graphics.Insets;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
-    // Activity Result Launchers for modern intent handling
+    // Persistent storage constants
+    private static final String PREFS_NAME = "AppPrefs";
+    private static final String KEY_BG_COLOR = "bg_color";
+    private static final String PROFILE_IMAGE_NAME = "profile_image.jpg";
+
     private ActivityResultLauncher<String> cameraPermissionLauncher;
     private ActivityResultLauncher<Uri> takePictureLauncher;
     private ActivityResultLauncher<String> getContentLauncher;
 
-    // UI and Data Components
-    private Uri photoUri;
+    private Uri tempPhotoUri; // Temporary URI for camera capture
     private ImageView ivProfile;
     private Button btnCamera;
     private Button btnGallery;
     private TextView tvStatus;
+    private ProgressBar pbLoading;
+    private ScrollView scrollView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        // Initialize UI components
+        scrollView = findViewById(R.id.scroll_view);
+        ivProfile = findViewById(R.id.iv_profile);
+        btnCamera = findViewById(R.id.btn_camera);
+        btnGallery = findViewById(R.id.btn_gallery);
+        tvStatus = findViewById(R.id.tv_status);
+        pbLoading = findViewById(R.id.pb_loading);
 
         // Standard system bar padding handling
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -54,23 +75,21 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        // Initialize UI components from layout
-        ivProfile = findViewById(R.id.iv_profile);
-        btnCamera = findViewById(R.id.btn_camera);
-        btnGallery = findViewById(R.id.btn_gallery);
-        tvStatus = findViewById(R.id.tv_status);
+        // Load saved preferences and profile image
+        loadPreferences();
+        setupColorCustomization();
 
-        // Click listeners for user actions
         btnCamera.setOnClickListener(v -> onCameraButtonClick());
         btnGallery.setOnClickListener(v -> onGalleryButtonClick());
 
-        // Registry for Gallery picker result
+        // Handle image selection from gallery
         getContentLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetContent(),
                 uri -> {
+                    pbLoading.setVisibility(View.GONE);
                     if (uri != null) {
-                        photoUri = uri;
-                        ivProfile.setImageURI(uri);
+                        saveImageToInternalStorage(uri); // Persist image to internal storage
+                        displayProfileImage();
                         tvStatus.setText("Status: Image loaded from Gallery");
                     } else {
                         tvStatus.setText("Status: Gallery selection canceled");
@@ -78,12 +97,14 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
 
-        // Registry for Camera capture result
+        // Handle photo capture from camera
         takePictureLauncher = registerForActivityResult(
                 new ActivityResultContracts.TakePicture(),
                 success -> {
-                    if (success) {
-                        ivProfile.setImageURI(photoUri);
+                    pbLoading.setVisibility(View.GONE);
+                    if (success && tempPhotoUri != null) {
+                        saveImageToInternalStorage(tempPhotoUri); // Persist captured photo
+                        displayProfileImage();
                         tvStatus.setText("Status: Photo captured successfully");
                     } else {
                         tvStatus.setText("Status: Camera canceled");
@@ -91,13 +112,14 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
 
-        // Registry for Camera runtime permission request
+        // Handle camera permission request
         cameraPermissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(),
                 isGranted -> {
                     if (isGranted) {
                         startCameraProcess();
                     } else {
+                        pbLoading.setVisibility(View.GONE);
                         Toast.makeText(this, "Camera permission denied", Toast.LENGTH_SHORT).show();
                         tvStatus.setText("Status: Permission Denied");
                     }
@@ -105,8 +127,62 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
-    // Handles camera button click and permission check
+    private void setupColorCustomization() {
+        findViewById(R.id.btn_color_gray).setOnClickListener(v -> changeBackgroundColor(R.color.bg_light_gray));
+        findViewById(R.id.btn_color_blue).setOnClickListener(v -> changeBackgroundColor(R.color.bg_light_blue));
+        findViewById(R.id.btn_color_green).setOnClickListener(v -> changeBackgroundColor(R.color.bg_light_green));
+        findViewById(R.id.btn_color_yellow).setOnClickListener(v -> changeBackgroundColor(R.color.bg_light_yellow));
+        findViewById(R.id.btn_color_pink).setOnClickListener(v -> changeBackgroundColor(R.color.bg_light_pink));
+    }
+
+    private void changeBackgroundColor(int colorResId) {
+        scrollView.setBackgroundColor(ContextCompat.getColor(this, colorResId));
+        // Save the background color preference
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putInt(KEY_BG_COLOR, colorResId).apply();
+    }
+
+    /**
+     * Copies the image from the given URI to the app's internal storage.
+     * This avoids SecurityExceptions when reloading the app as gallery URIs are temporary.
+     */
+    private void saveImageToInternalStorage(Uri uri) {
+        try (InputStream is = getContentResolver().openInputStream(uri);
+             FileOutputStream fos = openFileOutput(PROFILE_IMAGE_NAME, Context.MODE_PRIVATE)) {
+            byte[] buffer = new byte[1024];
+            int read;
+            while ((read = is.read(buffer)) != -1) {
+                fos.write(buffer, 0, read);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Reads the profile image from internal storage and displays it in the ImageView.
+     */
+    private void displayProfileImage() {
+        File file = new File(getFilesDir(), PROFILE_IMAGE_NAME);
+        if (file.exists()) {
+            Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+            ivProfile.setImageBitmap(bitmap);
+        }
+    }
+
+    private void loadPreferences() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        
+        // Restore background color
+        int savedColor = prefs.getInt(KEY_BG_COLOR, R.color.bg_light_gray);
+        scrollView.setBackgroundColor(ContextCompat.getColor(this, savedColor));
+
+        // Restore profile image from internal storage
+        displayProfileImage();
+    }
+
     private void onCameraButtonClick() {
+        pbLoading.setVisibility(View.VISIBLE);
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             startCameraProcess();
@@ -115,51 +191,38 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Handles gallery button click
     private void onGalleryButtonClick() {
+        pbLoading.setVisibility(View.VISIBLE);
         getContentLauncher.launch("image/*");
     }
 
-    // Creates file and launches camera intent
     private void startCameraProcess() {
         try {
-            File photoFile = createImageFile();
-            // Generate secure URI using FileProvider
-            photoUri = FileProvider.getUriForFile(this,
-                    getPackageName() + ".fileprovider",
-                    photoFile);
-            takePictureLauncher.launch(photoUri);
-        } catch (Exception e) {
+            // Create a temporary file for the camera intent
+            File photoFile = File.createTempFile(
+                    "TEMP_IMG_", ".jpg", getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES));
+            tempPhotoUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", photoFile);
+            takePictureLauncher.launch(tempPhotoUri);
+        } catch (IOException e) {
             e.printStackTrace();
+            pbLoading.setVisibility(View.GONE);
             tvStatus.setText("Error: Camera failed to start");
         }
     }
 
-    // Generates a unique image file in external storage
-    private File createImageFile() throws IOException {
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
-        String imageFileName = "JPEG_" + timeStamp + "_";
-        File storageDir = getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES);
-
-        return File.createTempFile(imageFileName, ".jpg", storageDir);
-    }
-
-    // Save image state for orientation changes
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
-        if (photoUri != null) {
-            outState.putParcelable("photo_uri", photoUri);
+        // Save temp URI to handle configuration changes during camera capture
+        if (tempPhotoUri != null) {
+            outState.putParcelable("temp_photo_uri", tempPhotoUri);
         }
     }
 
-    // Restore image state after recreation
     @Override
     protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
-        photoUri = BundleCompat.getParcelable(savedInstanceState, "photo_uri", Uri.class);
-        if (photoUri != null) {
-            ivProfile.setImageURI(photoUri);
-        }
+        // Restore temp URI after configuration change
+        tempPhotoUri = savedInstanceState.getParcelable("temp_photo_uri");
     }
 }
