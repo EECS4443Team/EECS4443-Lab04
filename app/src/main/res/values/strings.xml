@@ -5,4 +5,5 @@
     <string name="select_from_gallery">Select from Gallery</string>
     <string name="profile_image_display">Profile Image Display</string>
     <string name="profile_picture_updater">Profile Picture Updater</string>
+    <string name="customize_color">Customize Color</string>
 </resources>
