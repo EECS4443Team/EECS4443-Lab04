@@ -69,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
                 new ActivityResultContracts.GetContent(),
                 uri -> {
                     if (uri != null) {
+                        photoUri = uri;
                         ivProfile.setImageURI(uri);
                         tvStatus.setText("Status: Image loaded from Gallery");
                     } else {
